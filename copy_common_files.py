@@ -19,6 +19,7 @@ __author__ = 'spec'
 
 mypath = "."
 
+
 def copy_common_files(indir1, indir2, outdir, lang1, lang2, action):
 
     if action == "copy":
@@ -26,29 +27,32 @@ def copy_common_files(indir1, indir2, outdir, lang1, lang2, action):
     else:
         action_cmd = "mv"
 
-    for (dirpath1, dirnames1, filenames1) in walk(indir1):
-        print dirpath1
+    # Get the list of filenames in indir1.
+    # Walk is supposed to return a list of (dirpath, dirname, filename) triplets
 
+    for (dirpath1, dirnames1, filenames1) in walk(indir1):
         for (dirpath2, dirnames2, filenames2) in walk(indir2):
             for filename_lang2 in filenames2:
                 if filename_lang2.endswith(lang2):
 
+                    # Remove the extension from file name
                     filename_wo_extension = filename_lang2[:-(len(lang2))]
                     filename_lang1 = filename_wo_extension + lang1
 
                     if filename_lang1 in filenames1:
+                        # Construct the copy/move command string
                         command = action_cmd + " " + dirpath1 + "/" + filename_lang1 + " " + outdir
                         print command
                         os.system(command)
-                        #print "Common file", filename_wo_extension
 
 
 def print_usage(binary_name):
-    print 'Usage: ', binary_name, "-b(batch-mode) --indir1=<input dir 1> "
+    print 'Usage: ', binary_name, "--indir1=<input dir 1> "
     "--indir2=<input dir 2> --outdir=<output dir> --l1=<language1> "
     "--l2=<language2> --action=<move/copy>"
-    print 'Note that l1 and l2 are only used for the extensions of the output file'
+    print 'The filenames should end with extensions .l1 and .l2'
     sys.exit(2)
+
 
 def main(binary_name, argv):
     indir1 = ''
@@ -58,13 +62,12 @@ def main(binary_name, argv):
     lang2 = ''
     action = ''
 
-    batch_mode = False
     if len(argv) == 0:
         print_usage(binary_name)
 
     try:
         # Used to get command line options for the script. ":" means arg also expected.
-        opts, args = getopt.getopt(argv, "hb", ["help", "batch", "indir1=", "indir2=",
+        opts, args = getopt.getopt(argv, "hb", ["help", "indir1=", "indir2=",
                                                 "outdir=", "l1=", "l2=", "action="])
     except getopt.GetoptError:
         print "Cannot parse arguments. Re-check flags"
@@ -73,11 +76,11 @@ def main(binary_name, argv):
     for opt, arg in opts:
         if opt in ("-h", "--help"):
             print_usage(binary_name)
-        elif opt in ("--indir1"):
+        elif opt == "--indir1":
             indir1 = arg
-        elif opt in ("--indir2"):
+        elif opt == "--indir2":
             indir2 = arg
-        elif opt in ("--outdir"):
+        elif opt == "--outdir":
             outdir = arg
         elif opt == "--l1":
             lang1 = arg
@@ -86,10 +89,10 @@ def main(binary_name, argv):
         elif opt == "--action":
             action = arg
 
-    if (indir1 == '' or indir2 ==''):
+    if indir1 == '' or indir2 == '':
         print "Input directories not specified"
         print_usage(binary_name)
-    if (outdir == ''):
+    if outdir == '':
         print "Output directory not specified"
         print_usage(binary_name)
     if lang1 == '' or lang2 == '':

@@ -18,7 +18,6 @@ import xml.dom.minidom
 __author__ = 'spec'
 
 
-
 def extract_corpus(infile, fout1, fout2):
     """
     Extract TMX corpus to 2 separate files - corresponding file ptrs given by fout1 and fout2.
@@ -38,7 +37,7 @@ def extract_corpus(infile, fout1, fout2):
     # we can use the attribute element to filter out stuff
 
     # if collection.hasAttribute("version"):
-        #print "Root element : %s" % collection.getAttribute("version")
+    # print "Root element : %s" % collection.getAttribute("version")
 
     # Get all the tuvs in the collection
     tuvs = collection.getElementsByTagName("tuv")
@@ -50,26 +49,25 @@ def extract_corpus(infile, fout1, fout2):
     for tuv in tuvs:
         segments = tuv.getElementsByTagName("seg")
         for seg in segments:
-            if (seg.hasChildNodes()):
+            if seg.hasChildNodes():
                 if (tuv_index % 2) == 1:
                     tuv_lang1 = seg.childNodes[0].data
                 else:
                     tuv_lang2 = seg.childNodes[0].data
 
-
         # After every odd-numbered element (starting from 0), we check if both lang sentences are non-empty.
         # If we do, we write them to corresponding files; else we discard them.
 
-        if (tuv_index %2) == 1:
-            if (tuv_lang1 != "" and tuv_lang2 != ""):
-                #print "Writing" + tuv_lang2
+        if (tuv_index % 2) == 1:
+            if tuv_lang1 != "" and tuv_lang2 != "":
                 fout1.write(tuv_lang1+'\n')
                 fout2.write(tuv_lang2+'\n')
 
             tuv_lang1 = ""
             tuv_lang2 = ""
 
-        tuv_index = tuv_index + 1
+        tuv_index += 1
+
 
 def prepare_files_and_extract_corpus(infile, lang1, lang2, batch_mode):
     """
@@ -82,7 +80,7 @@ def prepare_files_and_extract_corpus(infile, lang1, lang2, batch_mode):
     :return:NONE
     """
 
-    if (batch_mode == True):
+    if batch_mode is True:
         print "******************"
         print "Batch Mode Enabled"
         print "******************"
@@ -93,18 +91,19 @@ def prepare_files_and_extract_corpus(infile, lang1, lang2, batch_mode):
         outfile1 = filename + "." + lang1
         outfile2 = filename + "." + lang2
 
-        print "Writing output to %s and %s" %(outfile1 , outfile2)
+        print "Writing output to %s and %s" % (outfile1, outfile2)
 
-        #encoding='utf8' is necessary because file is opened in ascii by default, which throws error when trying to
-        #write a non-ascii character
+        # encoding='utf8' is necessary because file is opened in ascii by default, which throws error when trying to
+        # write a non-ascii character
 
-        fout1 = io.open(outfile1,'w',encoding='utf8')
-        fout2 = io.open(outfile2,'w',encoding='utf8')
+        fout1 = io.open(outfile1, 'w', encoding='utf8')
+        fout2 = io.open(outfile2, 'w', encoding='utf8')
 
         extract_corpus(filename, fout1, fout2)
 
         fout1.close()
         fout2.close()
+
 
 def print_usage(binary_name):
     print ('Usage: ', binary_name, "-b(batch-mode) --infile=<inputfile> "
