@@ -36,7 +36,7 @@ def get_month(line):
 
 def get_day(line):
     words = line.split()
-    print words
+    #print words
     if len(words) > 0:
         day = words[-1]
         #print "Len(day)", len(day)
@@ -89,7 +89,7 @@ def get_time(line):
     else:
         time = time.replace(":","")
 
-    print "Time: ", time
+    #print "Time: ", time
     return time
 
 
@@ -102,15 +102,15 @@ def get_author(line):
     return ""
 
 
-def separate_combined_whispers_to_separate_files(fin, csv_writer):
+def separate_combined_whispers_to_separate_files(fin, outdir, csv_writer):
     line_no = 0
     message_beg_flag = False
-    year = "0000"
-    month = "00"
-    time = "0000"
-    author = ""
+    year = '0000'
+    month = '00'
+    day = '00'
+    time = '0000'
+    author = ''
     whisper_start_line = 0
-    whisper_end_line = 0
 
     lines = fin.readlines()
     num_lines = len(lines)
@@ -122,17 +122,27 @@ def separate_combined_whispers_to_separate_files(fin, csv_writer):
 
         if lines[line_no].find(u'प्रिय मालिक') != -1:
             message_beg_flag = True
-            if(line_no > 0):
-                # Finish writing out the previous whisper to a file
+            # Finish writing out the previous whisper to a file
+            if line_no > 0:
                 author = get_author(lines[line_no-1])
                 timestamp = year + month + day + time
-                filename = timestamp + u'-hi.txt'
+                filename = outdir + '/' + timestamp + u'-hi.txt'
                 fout_whisper = io.open(filename, 'w', encoding='utf8')
+
                 for whisper_line in range (whisper_start_line, line_no):
-                    fout_whisper.write(lines[whisper_line] + '\n')
+                    fout_whisper.write(lines[whisper_line] + '\r\n')
+
                 fout_whisper.close()
                 csv_writer.writerow([unicode(filename), unicode(timestamp), u'hi', unicode(author), u'1'])
-                print author
+
+                # Reset variables to default values after use
+                year = '0000'
+                month = '00'
+                day = '00'
+                time = '0000'
+                author = ''
+                #print author
+
             line_no += 2
             # Also close the prev whispers message here.
             continue
@@ -145,9 +155,24 @@ def separate_combined_whispers_to_separate_files(fin, csv_writer):
                 day = get_day(lines[line_no][:month_pos])
                 year = get_year(lines[line_no][month_pos:])
                 time = get_time(lines[line_no])
-            print "Day:%s Month:%s Year:%s" %(day, month, year)
+            #print "Day:%s Month:%s Year:%s" %(day, month, year)
 
         line_no += 1
+
+    # Handle the last whisper in the file. We always wrap up the prev whisper
+    # after encountering a new one - which wouldn't be the case with the last one!
+
+    if num_lines > 0:
+        author = get_author(lines[line_no-1])
+        timestamp = year + month + day + time
+        filename = outdir + '/' + timestamp + u'-hi.txt'
+        fout_whisper = io.open(filename, 'w', encoding='utf8')
+
+        for whisper_line in range (whisper_start_line, line_no):
+            fout_whisper.write(lines[whisper_line] + '\n')
+
+        fout_whisper.close()
+        csv_writer.writerow([unicode(filename), unicode(timestamp), u'hi', unicode(author), u'1'])
 
 
 def restore_hindi_whispers_chars_and_formatting(fin, fout):
@@ -170,6 +195,7 @@ def restore_hindi_whispers_chars_and_formatting(fin, fout):
         line = line.replace('ङ्घ', '”')
         line = line.replace('ङ्ख', 'फ')
         line = line.replace('μफ', 'फ़')
+        line = line.replace('μर्फ','र्फ़')
         line = line.replace('०', '0')
         line = line.replace('१', '1')
         line = line.replace('२', '2')
@@ -181,11 +207,35 @@ def restore_hindi_whispers_chars_and_formatting(fin, fout):
         line = line.replace('८', '8')
         line = line.replace('९', '9')
         line = line.replace('μक', 'क़')
+        line = line.replace('μग', 'ग़')
+        line = line.replace('्रया', 'क्या')
+        line = line.replace ('्रयोंकि', 'क्योंकि')
+        line = line.replace('्रयों', 'क्यों')
+        line = line.replace ('μख', 'ख़')
+        line = line.replace('अ्रटूबर','अक्टूबर')
+        line = line.replace('ैैं', 'ैं')
+        line = line.replace('आें','ओं')
+        line = line.replace('़ुड', 'ुड़')
+        #line = line.replace('मेें', 'में')
+        line = line.replace('ढूँ़ढ', 'ढूँढ')
+        line = line.replace('कभीकभी','कभी-कभी')
+        line = line.replace('छोटीछोटी','छोटी-छोटी')
+        line = line.replace('काया]', 'कार्य')
+        line = line.replace ('ेें', 'ें')
+
+        # *********DON'T TOUCH*********
+        line = line.replace('़ड','ड़')
+        line = line.replace('़ढ', 'ढ़')
+        line = line.replace('़ोड', 'ोड़')
+        line = line.replace('ंॅ', 'ँ')
+        # ****************************
+
+        #line = line.replace('वμ्रत', 'वक्त')
 
         # The whispers copied from PDF have newline after each line appearing in the PDF.
         # We therefore have to combine multiple lines in a single line by observing opening "
         # or (.
-        print line[0], line[-2]
+        #print line[0], line[-2]
 
         if line[0] == '(':
             combine_mode_bracket = True
@@ -200,7 +250,7 @@ def restore_hindi_whispers_chars_and_formatting(fin, fout):
             print "Combine mode bracket end"
 
         # Used hit-and-trial (aka printfs) to determine where does a closed brace appear in unicode!
-        # This is because in there, the characters are no longer 1-byte.In fact, I think we can safely
+        # This is because in there, the characters are no longer 1-byte. In fact, I think we can safely
         # assume each char to be of 4 byte when working with pure Unicode.
 
         if line.find('”') == len(line) -4:
@@ -208,21 +258,24 @@ def restore_hindi_whispers_chars_and_formatting(fin, fout):
             print "Combine mode quotes end"
 
         if combine_mode_quotes == True or combine_mode_bracket == True:
-            line = line.rstrip('\n')
+            #The \n acts as a space as well, so replace that with space
+            line = line.replace('\n', ' ')
 
         fout.write(line.decode("utf-8"))
+        #fout.write(line)
 
         # line = line.replace( '६' , '6' )
 
 #def convert_tamil_whispers_to_panini(fin, fout):
 
 
-def process_conversion_to_panini(infile, language, batch_mode):
+def process_conversion_to_panini(infile, indir, outdir, language, refine, panini):
+
     # In batch mode, the input file consists of a newline separated list of file names containing the source text
-    if (batch_mode == True):
-        print "******************"
-        print "Batch Mode Enabled"
-        print "******************"
+    if (indir == True):
+        print "**********************"
+        print "Directory Mode Enabled"
+        print "**********************"
 
     print 'Input file:', infile
     print 'Language:', language
@@ -230,50 +283,81 @@ def process_conversion_to_panini(infile, language, batch_mode):
     if language != "tamil" and language != "hindi":
         sys.stderr.write("Language not supported\n")
         exit(1)
+    filenames = []
+    if indir:
+        filenames = utilities.get_files_in_dir(indir)
+    else:
+        filenames.append(infile)
 
-    for filename in utilities.get_input_files(infile, batch_mode):
+    for filename in utilities.get_files_in_dir(indir):
+
+        if indir:
+            read_filename = indir + '/' + filename
+        else:
+            read_filename = filename
 
         print "Processing file", filename
-        outfile_conversion = filename + ".converted"
+        fin = io.open(read_filename, 'r', encoding='utf8')
 
-        print "Writing output to %s" % (outfile_conversion)
+        if refine:
+            outfile_conversion = outdir + '/' + filename + ".converted"
+            print "Writing refined output to %s" %outfile_conversion
 
-        # encoding='utf8' is necessary because file is opened in ascii by default, which throws error when trying to
-        # write a non-ascii character
+            # encoding='utf8' is necessary because file is opened in ascii by default, which throws error when trying to
+            # write a non-ascii character
 
-        fin = io.open(filename, 'r', encoding='utf8')
-        fout_conversion = io.open(outfile_conversion, 'w', encoding='utf8')
+            fout_conversion = io.open(outfile_conversion, 'w', encoding='utf8')
 
-        if language == 'hindi':
-            restore_hindi_whispers_chars_and_formatting(fin, fout_conversion)
-        #else:
-            #convert_tamil_whispers_to_panini(fin, fout)
+            if language == 'hindi':
+                restore_hindi_whispers_chars_and_formatting(fin, fout_conversion)
+            #else:
+                #convert_tamil_whispers_to_panini(fin, fout)
+
+            fin.close()
+            fout_conversion.close()
+
+
+            fin = io.open(outfile_conversion, 'r', encoding='utf8')
+
+        if panini:
+            outfile_csv = outdir + '/' + 'whispers.' + language + '.csv'
+
+            fout_csv = io.open(outfile_csv, 'ab')
+
+
+            # Lifted from http://stackoverflow.com/questions/2084069/create-a-csv-file-with-values-from-a-python-list
+            csv_writer = csv.writer(fout_csv, quoting=csv.QUOTE_ALL)
+
+            separate_combined_whispers_to_separate_files(fin, outdir, csv_writer)
+            fout_csv.close()
 
         fin.close()
-        fout_conversion.close()
-        outfile_csv = 'whispers.' + language + '.csv'
 
-        fin = io.open(outfile_conversion, 'r', encoding='utf8')
-        fout_csv = io.open(outfile_csv, 'ab')
-
-        # Lifted from http://stackoverflow.com/questions/2084069/create-a-csv-file-with-values-from-a-python-list
-        csv_writer = csv.writer(fout_csv, quoting=csv.QUOTE_ALL)
-        separate_combined_whispers_to_separate_files(fin, csv_writer)
-
-        fin.close()
-        fout_csv.close()
 
 
 
 
 def print_usage(binary_name):
-    print 'Usage:', binary_name, "-b(batch-mode) --infile=<inputfile> -l=<hindi/tamil>"
+    print 'Usage:', binary_name, "--infile=<inputfile> --indir=<input dir> -l=<hindi/tamil> --refine -- panini"
+    print "--indir: Take all files in the dir for processing "
+    print "--refine: Refine UTF-8 files further "
+    print "--panini: Split into whispers with panini naming convention and populate a csv file"
     sys.exit(2)
 
 
 def main(binary_name, argv):
-    infile = ''
-    language = ''
+
+    infile = None
+    language = None
+    indir = None
+    outdir = '.'
+
+    # Refine output from font-converter to correct some chars as well as combine split sentences
+    refine = False
+
+    # Create Whispers files for Panini
+    panini = False
+
 
     batch_mode = False
     if len(argv) == 0:
@@ -281,7 +365,8 @@ def main(binary_name, argv):
 
     try:
         # Used to get command line options for the script. ":" means arg also expected.
-        opts, args = getopt.getopt(argv, "hbi:l:", ["help", "batch", "infile="])
+        opts, args = getopt.getopt(argv, "hl:", ["help", "infile=", "indir=", "outdir=", "infile=",
+                                                 "refine", "panini"])
     except getopt.GetoptError:
         print "Cannot parse arguments. Re-check flags"
         print_usage(binary_name)
@@ -289,24 +374,34 @@ def main(binary_name, argv):
     for opt, arg in opts:
         if opt in ("-h", "--help"):
             print_usage(binary_name)
-        elif opt in ("-i", "--infile"):
+        elif opt == "--infile":
             infile = arg
         elif opt == "-l":
             language = arg
-        elif opt in ("-b", "--batch"):
-            batch_mode = True
+        elif opt == "--indir":
+            indir = arg
+        elif opt == "--outdir":
+            outdir = arg
+        elif opt == "--refine":
+            refine = True
+        elif opt == "--panini":
+            panini = True
 
-    if infile == '':
-        print "Input file not specified"
+
+    if infile == None and indir == None:
+        print "Input file / Dir not specified"
         print_usage(binary_name)
-    elif language == '':
+    if refine == False and panini == False:
+        print "No operations specified. Specify among --refine and/or --panini"
+    elif language == None:
         print "Language not specified"
         print_usage(binary_name)
 
     print 'Input file:', infile
+    print 'Input Dir:', indir
     print 'Language:', language
 
-    process_conversion_to_panini(infile, language, batch_mode)
+    process_conversion_to_panini(infile, indir, outdir, language, refine, panini)
 
 
 if __name__ == "__main__":

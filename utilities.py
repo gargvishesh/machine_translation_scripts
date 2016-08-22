@@ -7,6 +7,7 @@ The file contains functions for tasks such as file handling.
 import sys
 import shlex
 from subprocess import Popen, PIPE
+from os import walk
 
 __author__ = 'spec'
 
@@ -51,6 +52,19 @@ def get_input_files(infile, batch_mode):
 
     return filenames
 
+
+def get_files_in_dir(indir):
+    """
+    Return a list of files to be opened for input
+
+    The function takes a text file as input, and depending on whether batch_mode is true/false,
+    returns a list of file names contained in that file, or the file itself
+
+    :return LIST[filenames]
+    """
+
+    for (dirpath, dirnames, filenames) in walk(indir):
+        return filenames
 
 def swap(x, y):
     """
