@@ -91,3 +91,8 @@ def get_exitcode_stdout_stderr(cmd):
     exitcode = proc.returncode
     #
     return exitcode, out, err
+
+def is_blank_line(line):
+    if len(line.rstrip('\n').rstrip('\r')) == 0:
+        return True
+    return False
