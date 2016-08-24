@@ -70,6 +70,8 @@ def get_time(line):
     # Time itself is generally mentioned after the prataha and ratri keywords
     words = line[pos:].split()
     time = words[1]
+
+    time_components = time.split(':')
     if add_12:
         # Handle 9 or 10
         if len(time) == 1 or len(time) == 2:
@@ -126,14 +128,16 @@ def separate_combined_whispers_to_separate_files(fin, outdir, csv_writer):
             if line_no > 0:
                 author = get_author(lines[line_no-1])
                 timestamp = year + month + day + time
-                filename = outdir + '/' + timestamp + u'-hi.txt'
-                fout_whisper = io.open(filename, 'w', encoding='utf8')
+                filename = timestamp + u'-hi.txt'
+                filename_full_path = outdir + '/' + filename
+                fout_whisper = io.open(filename_full_path, 'w', encoding='utf8')
 
                 for whisper_line in range (whisper_start_line, line_no):
                     fout_whisper.write(lines[whisper_line] + '\r\n')
 
                 fout_whisper.close()
-                csv_writer.writerow([unicode(filename), unicode(timestamp), u'hi', unicode(author), u'1'])
+                print "Naming file: ", filename
+                csv_writer.writerow([whisper_start_line + 1, unicode(filename), unicode(timestamp), u'hi', unicode(author), u'1'])
 
                 # Reset variables to default values after use
                 year = '0000'
@@ -165,14 +169,15 @@ def separate_combined_whispers_to_separate_files(fin, outdir, csv_writer):
     if num_lines > 0:
         author = get_author(lines[line_no-1])
         timestamp = year + month + day + time
-        filename = outdir + '/' + timestamp + u'-hi.txt'
-        fout_whisper = io.open(filename, 'w', encoding='utf8')
+        filename = timestamp + u'-hi.txt'
+        filename_full_path = outdir + '/' + filename
+        fout_whisper = io.open(filename_full_path, 'w', encoding='utf8')
 
         for whisper_line in range (whisper_start_line, line_no):
             fout_whisper.write(lines[whisper_line] + '\n')
 
         fout_whisper.close()
-        csv_writer.writerow([unicode(filename), unicode(timestamp), u'hi', unicode(author), u'1'])
+        csv_writer.writerow([whisper_start_line + 1, unicode(filename), unicode(timestamp), u'hi', unicode(author), u'1'])
 
 
 def restore_hindi_whispers_chars_and_formatting(fin, fout):
@@ -222,6 +227,8 @@ def restore_hindi_whispers_chars_and_formatting(fin, fout):
         line = line.replace('छोटीछोटी','छोटी-छोटी')
         line = line.replace('काया]', 'कार्य')
         line = line.replace ('ेें', 'ें')
+        line = line.replace ('‘‘', '“')
+        line = line.replace ('’’', '”')
 
         # *********DON'T TOUCH*********
         line = line.replace('़ड','ड़')
@@ -230,7 +237,7 @@ def restore_hindi_whispers_chars_and_formatting(fin, fout):
         line = line.replace('ंॅ', 'ँ')
         # ****************************
 
-        #line = line.replace('वμ्रत', 'वक्त')
+        line = line.replace('वμ्रत', 'वक्त')
 
         # The whispers copied from PDF have newline after each line appearing in the PDF.
         # We therefore have to combine multiple lines in a single line by observing opening "
@@ -257,6 +264,10 @@ def restore_hindi_whispers_chars_and_formatting(fin, fout):
             combine_mode_quotes = False
             print "Combine mode quotes end"
 
+        if line.find('प्रिय मालिक') != -1:
+            combine_mode_bracket = False
+            combine_mode_quotes = False
+
         if combine_mode_quotes == True or combine_mode_bracket == True:
             #The \n acts as a space as well, so replace that with space
             line = line.replace('\n', ' ')
@@ -266,8 +277,15 @@ def restore_hindi_whispers_chars_and_formatting(fin, fout):
 
         # line = line.replace( '६' , '6' )
 
-#def convert_tamil_whispers_to_panini(fin, fout):
+def restore_tamil_whispers_chars_and_formatting(fin, fout):
+    for line in fin:
 
+        # Should read http://nedbatchelder.com/text/unipain.html to understand this further.
+        # Basically - Encode: Unicode -> Bytes, Decode: Bytes -> Unicode
+
+        line = line.encode('utf-8')
+        line = line.replace('Œாட்சியாக', 'சாட்சி யாக')
+        fout.write(line.decode("utf-8"))
 
 def process_conversion_to_panini(infile, indir, outdir, language, refine, panini):
 
@@ -310,8 +328,8 @@ def process_conversion_to_panini(infile, indir, outdir, language, refine, panini
 
             if language == 'hindi':
                 restore_hindi_whispers_chars_and_formatting(fin, fout_conversion)
-            #else:
-                #convert_tamil_whispers_to_panini(fin, fout)
+            else:
+                restore_tamil_whispers_chars_and_formatting(fin, fout_conversion)
 
             fin.close()
             fout_conversion.close()
