@@ -234,6 +234,44 @@ def separate_combined_hindi_whispers_to_separate_files(fin, outdir, csv_writer):
         fout_whisper.close()
         csv_writer.writerow([whisper_start_line + 1, unicode(filename), unicode(timestamp), u'hi', unicode(author), u'1'])
 
+
+def write_out_whisper(lines, year, month, day, time, infile, outdir, whisper_start_line, whisper_end_line, csv_writer):
+
+    print 'Author line', lines[whisper_end_line]
+    author = get_author_tamil(lines[whisper_end_line])
+    timestamp = year + month + day + time
+    filename = 'tamil_whispers.txt'
+    filename_official = timestamp + u'-ta.txt'
+    filename_full_path = outdir + '/' + filename
+    fout_whisper = io.open(filename_full_path, 'a', encoding='utf8')
+    fout_whisper.write(u'========================\n')
+    fout_whisper.write(u"#SOURCE:"+infile+ ', ' + str(whisper_start_line) +'\n')
+    fout_whisper.write(u"#YEAR:"+year+'\n')
+    fout_whisper.write(u"#MONTH:"+month+'\n')
+    fout_whisper.write(u"#DAY:"+day+'\n')
+    fout_whisper.write(u"#TIME:"+time+'\n')
+    fout_whisper.write(u"#AUTHOR:"+author+'\n')
+    fout_whisper.write(u'#WHISPER_BEGIN\n')
+
+    for whisper_line_no in range (whisper_start_line, whisper_end_line):
+        whisper_line = lines[whisper_line_no]
+
+        whisper_line = whisper_line.rstrip('\n')
+        whisper_line = whisper_line.rstrip('\r')
+
+        if utilities.is_blank_line(whisper_line) == False:
+            fout_whisper.write(whisper_line+ u'\r\n')
+            fout_whisper.write(u'\r\n')
+
+    #There should be no blank line after author, hence putting it separately
+    fout_whisper.write(lines[whisper_end_line])
+
+    fout_whisper.write(u'#WHISPER_END\n')
+    fout_whisper.close()
+    print "Naming file: ", filename
+    csv_writer.writerow([whisper_start_line + 1, unicode(filename), unicode(timestamp), u'hi', unicode(author), u'1'])
+
+
 def separate_combined_tamil_whispers_to_separate_files(fin, infile, outdir, csv_writer):
     line_no = 0
     message_beg_flag = False
@@ -270,26 +308,7 @@ def separate_combined_tamil_whispers_to_separate_files(fin, infile, outdir, csv_
 
             # Finish writing out the previous whisper to a file
             if line_no > 0:
-                print 'Author line', lines[last_non_empty_line_no]
-                author = get_author_tamil(lines[last_non_empty_line_no])
-                timestamp = year + month + day + time
-                filename = timestamp + u'-ta.txt'
-                filename_full_path = outdir + '/' + filename
-                fout_whisper = io.open(filename_full_path, 'w', encoding='utf8')
-
-                for whisper_line_no in range (whisper_start_line, line_no - 2 ):
-                    whisper_line = lines[whisper_line_no]
-
-                    whisper_line = whisper_line.rstrip('\n')
-                    whisper_line = whisper_line.rstrip('\r')
-
-                    if utilities.is_blank_line(whisper_line) == False:
-                        fout_whisper.write(whisper_line+ u'\r\n')
-                        fout_whisper.write(u'\r\n')
-
-                fout_whisper.close()
-                print "Naming file: ", filename
-                csv_writer.writerow([whisper_start_line + 1, unicode(filename), unicode(timestamp), u'hi', unicode(author), u'1'])
+                write_out_whisper(lines, year, month, day, time, infile, outdir, whisper_start_line, last_non_empty_line_no, csv_writer)
 
                 # Reset variables to default values after use
                 year = '0000'
@@ -322,24 +341,14 @@ def separate_combined_tamil_whispers_to_separate_files(fin, infile, outdir, csv_
     # after encountering a new one - which wouldn't be the case with the last one!
 
     if num_lines > 0:
-        author = get_author_tamil(lines[last_non_empty_line_no])
-        timestamp = year + month + day + time
-        filename = timestamp + u'-ta.txt'
-        filename_full_path = outdir + '/' + filename
-        fout_whisper = io.open(filename_full_path, 'w', encoding='utf8')
+        write_out_whisper(lines, year, month, day, time, infile, outdir, whisper_start_line, last_non_empty_line_no, csv_writer)
 
-        for whisper_line_no in range (whisper_start_line, line_no - 2 ):
-            whisper_line = lines[whisper_line_no]
+        # Reset variables to default values after use
+        year = '0000'
+        month = '00'
+        day = '00'
+        time = '0000'
 
-            whisper_line = whisper_line.rstrip('\n')
-            whisper_line = whisper_line.rstrip('\r')
-
-            if utilities.is_blank_line(whisper_line) == False:
-                fout_whisper.write(whisper_line+ u'\r\n')
-                fout_whisper.write(u'\r\n')
-
-        fout_whisper.close()
-        csv_writer.writerow([whisper_start_line + 1, unicode(filename), unicode(timestamp), u'hi', unicode(author), u'1'])
 
 def restore_hindi_whispers_chars_and_formatting(fin, fout):
     combine_mode_quotes = False
@@ -480,7 +489,7 @@ def process_conversion_to_panini(infile, indir, outdir, language, refine, panini
         print "Processing file", filename
 
         fin = io.open(read_filename, 'r', encoding='utf8')
-        fin_filename = filename
+
 
         if refine:
             outfile_conversion = filename + ".converted"
@@ -503,7 +512,7 @@ def process_conversion_to_panini(infile, indir, outdir, language, refine, panini
 
 
             fin = io.open(outfile_conversion_full_path, 'r', encoding='utf8')
-            fin_filename = outfile_conversion
+
 
         if panini:
             outfile_csv = outdir + '/' + 'whispers.' + language + '.csv'
@@ -516,7 +525,7 @@ def process_conversion_to_panini(infile, indir, outdir, language, refine, panini
             if language == 'hindi':
                 separate_combined_hindi_whispers_to_separate_files(fin, outdir, csv_writer)
             else:
-                separate_combined_tamil_whispers_to_separate_files(fin, fin_filename, outdir, csv_writer)
+                separate_combined_tamil_whispers_to_separate_files(fin, filename, outdir, csv_writer)
             fout_csv.close()
 
         fin.close()
