@@ -8,7 +8,7 @@ To conform to sentence alignment, it discards sentences in one language
 when the counterpart in the other language is empty in the TMX file. Note
 that it assumes a tag structure of a TMX file as <tuv><seg></seg></tuv>
 """
-from numpy.ctypeslib import _num_fromflags
+
 
 import sys
 import getopt
@@ -16,70 +16,71 @@ import io
 import utilities
 import csv
 
+from collections import OrderedDict
+
 __author__ = 'spec'
 
+hindi_months_dictionary = {u"जनवरी": '01', u"फरवरी": '02', u"मार्च": '03', u"अप्रैल": '04',
+                           u'अप्रेल': '04', u"मई": '05', u"जून": '06', u"जुलाई": '07',
+                           u"अगस्त": '08', u"सितम्बर": '09', u"अक्टूबर": '10', u"नवम्बर": '11',
+                           u"दिसम्बर": '12'}
 
-def get_month_hindi(line):
-    months_list = {u"जनवरी":'01', u"फरवरी":'02', u"मार्च":'03', u"अप्रैल":'04', u'अप्रेल':'04', u"मई":'05', u"जून":'06', u"जुलाई":'07',
-                   u"अगस्त":'08', u"सितम्बर":'09', u"अक्टूबर":'10', u"नवम्बर":'11', u"दिसम्बर":'12'}
-    month_index = 0
 
-    for month in months_list.keys():
-        pos = line.find(month)
+def get_year_month_day_hindi(line):
+
+    # Example Header: सोमवार, 2 अगस्त 1999  प्रात: 1000 बजे
+
+    year = '0000'
+    month = '00'
+    day = '00'
+
+    line = line.rstrip('\n')
+    line = line.rstrip('\r')
+
+    for month_hindi in hindi_months_dictionary.keys():
+        pos = line.find(month_hindi)
         if pos != -1:
-            return months_list[month], pos
-        month_index += 1
+            month = hindi_months_dictionary[month_hindi]
+            post_month_words = line[pos:].replace(',', '').split(' ')
+            if len(post_month_words) > 1 and post_month_words[1].isdigit():
+                year = post_month_words[1]
 
-    # Indicate month not found by this pair.
-    return "00", -1
+            pre_month_words = line[:pos].split()
+            if len(pre_month_words) > 0 and pre_month_words[-1].isdigit():
+                day = pre_month_words[-1]
+                # Handle single digit such as 9
+                if len(day) == 1:
+                    day = '0' + day
+
+    return year, month, day
+
 
 def get_year_month_day_tamil(line):
     year = '0000'
-    month ='00'
+    month = '00'
     day = '00'
 
-    months_list = {u"ஜனவரி":'01', u"பிப்ரவரி":'02', u"மார்ச்":'03', u"ஏப்ரல்":'04', u"மே":'05', u"ஜூன்":'06', u"ஜூலை":'07',
-                   u"ஆகஸ்ட்":'08', u"செப்டம்பர்":'09', u"அக்டோபர்":'10', u"நவம்பர்":'11', u"டிசம்பர்":'12'}
+    months_list = {u"ஜனவரி": '01', u"பிப்ரவரி": '02', u"மார்ச்": '03', u"ஏப்ரல்": '04',
+                   u"மே": '05', u"ஜூன்": '06', u"ஜூலை": '07',
+                   u"ஆகஸ்ட்": '08', u"செப்டம்பர்": '09', u"அக்டோபர்": '10',
+                   u"நவம்பர்": '11', u"டிசம்பர்": '12'}
 
     for month_tamil in months_list.keys():
         pos = line.find(month_tamil)
         if pos != -1:
             # Get the list of all words after the month string
             month = months_list[month_tamil]
-            post_month_words = line[pos:].replace(',','').split(' ')
-            print 'post_month_words ',post_month_words
-            if len (post_month_words) > 1 and post_month_words[1].isdigit():
+            post_month_words = line[pos:].replace(',', '').split(' ')
+            print 'post_month_words ', post_month_words
+            if len(post_month_words) > 1 and post_month_words[1].isdigit():
                 day = post_month_words[1]
                 # Handle single digit such as 9
                 if len(day) == 1:
                     day = '0' + day
-            if len (post_month_words) > 2 and post_month_words[2].isdigit():
+            if len(post_month_words) > 2 and post_month_words[2].isdigit():
                 year = post_month_words[2]
 
     return year, month, day
-
-
-def get_day_hindi(line):
-    words = line.split()
-    #print words
-    if len(words) > 0:
-        day = words[-1]
-        #print "Len(day)", len(day)
-        if len(day) > 0:
-            if day[0] in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
-                if len(day) < 2:
-                    day = "0" + day
-                return day
-    return "00"
-
-
-def get_year_hindi(line):
-    words = line.split()
-    if (len(words) > 1):
-        year = words[1]
-        return year
-    return "0000"
-
 
 
 def get_time_hindi(line):
@@ -96,16 +97,22 @@ def get_time_hindi(line):
     time = words[1]
 
     time_components = time.split(':')
-    hours_int = int(time_components[0])
+    hours_str = "00"
     minutes_str = '00'
-    if len(time_components) > 1:
-        minutes_str = time_components[1]
-    if add_12:
-        hours_int += 12
-    hours_str = str(hours_int)
-    if len(hours_str) == 1:
-        hours_str = '0' + hours_str
+
+    if time_components[0].isdigit():
+        hours_int = int(time_components[0])
+        minutes_str = '00'
+        if len(time_components) > 1 and time_components[1].isdigit():
+            minutes_str = time_components[1]
+        if add_12:
+            hours_int += 12
+        hours_str = str(hours_int)
+        if len(hours_str) == 1:
+            hours_str = '0' + hours_str
+
     return hours_str + minutes_str
+
 
 def get_time_tamil(line):
     # Conversion to 24-hours timezone
@@ -123,15 +130,18 @@ def get_time_tamil(line):
     words = line[pos:].split()
     time = words[1]
 
-    if (time.find('.')):
+    if time.find('.') != -1:
         time_components = time.split('.')
     else:
         time_components = time.split(':')
+    time_components[0] = time_components[0].strip(' ')
     if time_components[0].isdigit():
         hours_int = int(time_components[0])
         minutes_str = '00'
-        if len(time_components) > 1 and time_components[1].isdigit():
-            minutes_str = time_components[1]
+        if len(time_components) > 1:
+            time_components[1] = time_components[1].strip(' ')
+            if time_components[1].isdigit():
+                minutes_str = time_components[1]
         if add_12:
             hours_int += 12
         hours_str = str(hours_int)
@@ -141,17 +151,17 @@ def get_time_tamil(line):
     return hours_str + minutes_str
 
 
-
 def get_author_hindi(line):
-    author_list_hindi =[u'बाबूजी', u'लालाजी']
+    author_list_hindi = [u'बाबूजी', u'लालाजी']
     author_list_english = ['Babuji', 'Lalaji']
     for i in range(0, len(author_list_hindi)):
         if line.find(author_list_hindi[i]) != -1:
             return author_list_english[i]
     return ""
 
+
 def get_author_tamil(line):
-    author_dict = {u'பாபூஜி':'Babuji', u'லாலாஜி':'Lalaji'}
+    author_dict = {u'பாபூஜி': 'Babuji', u'லாலாஜி': 'Lalaji'}
     for author_tamil in author_dict.keys():
         if line.find(author_tamil) != -1:
             return author_dict[author_tamil]
@@ -159,49 +169,69 @@ def get_author_tamil(line):
     return ""
 
 
-def separate_combined_hindi_whispers_to_separate_files(fin, outdir, csv_writer):
+def write_out_whisper_hindi(lines, year, month, day, time,
+                            infile, fout, whisper_start_line,
+                            whisper_end_line, csv_writer):
+
+    author = get_author_hindi(lines[whisper_end_line])
+    timestamp = year + month + day + time
+    fout.write(u'========================\n')
+    fout.write(u"#SOURCE:" + infile + ', ' + str(whisper_start_line) + '\n')
+    fout.write(u"#YEAR:" + year + '\n')
+    fout.write(u"#MONTH:" + month + '\n')
+    fout.write(u"#DAY:" + day + '\n')
+    fout.write(u"#TIME:" + time + '\n')
+    fout.write(u"#AUTHOR:" + author + '\n')
+    fout.write(u'#WHISPER_BEGIN\n')
+
+    for whisper_line_no in range(whisper_start_line, whisper_end_line):
+        whisper_line = lines[whisper_line_no]
+
+        whisper_line = whisper_line.rstrip('\n')
+        whisper_line = whisper_line.rstrip('\r')
+
+        if not utilities.is_blank_line(whisper_line):
+            fout.write(whisper_line + u'\r\n')
+            fout.write(u'\r\n')
+
+    # There should be no blank line after author, hence putting it separately
+    fout.write(lines[whisper_end_line])
+
+    fout.write(u'#WHISPER_END\n')
+    csv_writer.writerow([whisper_start_line + 1, unicode(timestamp), u'hi', unicode(author), u'1'])
+
+
+def write_consolidated_hindi_whispers_master_file(fin, infile, outdir, csv_writer):
     line_no = 0
     message_beg_flag = False
     year = '0000'
     month = '00'
     day = '00'
     time = '0000'
-    author = ''
     whisper_start_line = 0
 
     lines = fin.readlines()
     num_lines = len(lines)
     print "num_lines ", num_lines
 
+    fout_consolidated = io.open(outdir+'/'+'hindi_whispers.txt', 'w', encoding='utf8')
+
     while line_no < num_lines:
         line = lines[line_no]
-        print "At line ", line_no
-
+        # print "At line ", line_no
         if lines[line_no].find(u'प्रिय मालिक') != -1:
             message_beg_flag = True
             # Finish writing out the previous whisper to a file
             if line_no > 0:
-                author = get_author_hindi(lines[line_no-1])
-                timestamp = year + month + day + time
-                filename = timestamp + u'-hi.txt'
-                filename_full_path = outdir + '/' + filename
-                fout_whisper = io.open(filename_full_path, 'w', encoding='utf8')
-
-                for whisper_line in range (whisper_start_line, line_no):
-                    fout_whisper.write(lines[whisper_line] + '\r\n')
-
-                fout_whisper.close()
-                print "Naming file: ", filename
-                csv_writer.writerow([whisper_start_line + 1, unicode(filename), unicode(timestamp), u'hi', unicode(author), u'1'])
+                write_out_whisper_hindi(lines, year, month, day, time, infile, fout_consolidated, whisper_start_line, line_no-1, csv_writer)
 
                 # Reset variables to default values after use
                 year = '0000'
                 month = '00'
                 day = '00'
                 time = '0000'
-                author = ''
-                #print author
-            #Skip reading lines 'प्रिय मालिक' and '
+
+            # Skip reading lines 'प्रिय मालिक' and '
             line_no += 2
             # Also close the prev whispers message here.
             continue
@@ -209,12 +239,10 @@ def separate_combined_hindi_whispers_to_separate_files(fin, outdir, csv_writer):
         if message_beg_flag:
             message_beg_flag = False
             whisper_start_line = line_no
-            month, month_pos = get_month_hindi(line)
-            if month_pos != -1:
-                day = get_day_hindi(line[:month_pos])
-                year = get_year_hindi(line[month_pos:])
-                time = get_time_hindi(line)
-            #print "Day:%s Month:%s Year:%s" %(day, month, year)
+            (year, month, day) = get_year_month_day_hindi(line)
+            time = get_time_hindi(line)
+
+            # print "Day:%s Month:%s Year:%s" %(day, month, year)
 
         line_no += 1
 
@@ -222,65 +250,53 @@ def separate_combined_hindi_whispers_to_separate_files(fin, outdir, csv_writer):
     # after encountering a new one - which wouldn't be the case with the last one!
 
     if num_lines > 0:
-        author = get_author_hindi(lines[line_no-1])
-        timestamp = year + month + day + time
-        filename = timestamp + u'-hi.txt'
-        filename_full_path = outdir + '/' + filename
-        fout_whisper = io.open(filename_full_path, 'w', encoding='utf8')
-
-        for whisper_line in range (whisper_start_line, line_no):
-            fout_whisper.write(lines[whisper_line] + '\n')
-
-        fout_whisper.close()
-        csv_writer.writerow([whisper_start_line + 1, unicode(filename), unicode(timestamp), u'hi', unicode(author), u'1'])
+        write_out_whisper_hindi(lines, year, month, day, time,
+                                infile, fout_consolidated,
+                                whisper_start_line, line_no-1, csv_writer)
+    fout_consolidated.close()
 
 
-def write_out_whisper(lines, year, month, day, time, infile, outdir, whisper_start_line, whisper_end_line, csv_writer):
+def write_out_whisper_tamil(lines, year, month, day, time,
+                            infile, fout, whisper_start_line,
+                            whisper_end_line, csv_writer):
 
-    print 'Author line', lines[whisper_end_line]
     author = get_author_tamil(lines[whisper_end_line])
     timestamp = year + month + day + time
-    filename = 'tamil_whispers.txt'
-    filename_official = timestamp + u'-ta.txt'
-    filename_full_path = outdir + '/' + filename
-    fout_whisper = io.open(filename_full_path, 'a', encoding='utf8')
-    fout_whisper.write(u'========================\n')
-    fout_whisper.write(u"#SOURCE:"+infile+ ', ' + str(whisper_start_line) +'\n')
-    fout_whisper.write(u"#YEAR:"+year+'\n')
-    fout_whisper.write(u"#MONTH:"+month+'\n')
-    fout_whisper.write(u"#DAY:"+day+'\n')
-    fout_whisper.write(u"#TIME:"+time+'\n')
-    fout_whisper.write(u"#AUTHOR:"+author+'\n')
-    fout_whisper.write(u'#WHISPER_BEGIN\n')
+    fout.write(u'========================\n')
+    fout.write(u"#SOURCE:"+infile + ', ' + str(whisper_start_line) + '\n')
+    fout.write(u"#YEAR:"+year+'\n')
+    fout.write(u"#MONTH:"+month+'\n')
+    fout.write(u"#DAY:"+day+'\n')
+    fout.write(u"#TIME:"+time+'\n')
+    fout.write(u"#AUTHOR:"+author+'\n')
+    fout.write(u'#WHISPER_BEGIN\n')
 
-    for whisper_line_no in range (whisper_start_line, whisper_end_line):
+    for whisper_line_no in range(whisper_start_line, whisper_end_line):
         whisper_line = lines[whisper_line_no]
 
         whisper_line = whisper_line.rstrip('\n')
         whisper_line = whisper_line.rstrip('\r')
 
-        if utilities.is_blank_line(whisper_line) == False:
-            fout_whisper.write(whisper_line+ u'\r\n')
-            fout_whisper.write(u'\r\n')
+        if not utilities.is_blank_line(whisper_line):
+            fout.write(whisper_line + u'\r\n')
+            fout.write(u'\r\n')
 
-    #There should be no blank line after author, hence putting it separately
-    fout_whisper.write(lines[whisper_end_line])
+    # There should be no blank line after author, hence putting it separately
+    fout.write(lines[whisper_end_line])
 
-    fout_whisper.write(u'#WHISPER_END\n')
-    fout_whisper.close()
-    print "Naming file: ", filename
-    csv_writer.writerow([whisper_start_line + 1, unicode(filename), unicode(timestamp), u'hi', unicode(author), u'1'])
+    fout.write(u'#WHISPER_END\n')
+    csv_writer.writerow([whisper_start_line + 1, unicode(timestamp), u'ta', unicode(author), u'1'])
 
 
-def separate_combined_tamil_whispers_to_separate_files(fin, infile, outdir, csv_writer):
+def write_consolidated_tamil_whispers_master_file(fin, infile, outdir, csv_writer):
     line_no = 0
     message_beg_flag = False
     year = '0000'
     month = '00'
     day = '00'
     time = '0000'
-    author = ''
     whisper_start_line = 0
+    last_non_empty_line_no = None
 
     # Just get non-blank lines from the file
     # Reference http://stackoverflow.com/questions/4842057/
@@ -291,13 +307,15 @@ def separate_combined_tamil_whispers_to_separate_files(fin, infile, outdir, csv_
     num_lines = len(lines)
     print "num_lines ", num_lines
 
+    fout_consolidated = io.open(outdir+'/'+'hindi_whispers.txt', 'wb', encoding='utf8')
+
     while line_no < num_lines:
         line = lines[line_no].rstrip()
-        # TODO-Vishesh: Check if blank's line length would be 0 or 1
+
         if utilities.is_blank_line(line):
             line_no += 1
             continue
-        #print "At line ", line_no
+        # print "At line ", line_no
 
         if line.isdigit():
 
@@ -305,19 +323,17 @@ def separate_combined_tamil_whispers_to_separate_files(fin, infile, outdir, csv_
             # we are at the beginning of the actual whisper itself
             message_beg_flag = True
 
-
             # Finish writing out the previous whisper to a file
             if line_no > 0:
-                write_out_whisper(lines, year, month, day, time, infile, outdir, whisper_start_line, last_non_empty_line_no, csv_writer)
+                write_out_whisper_tamil(lines, year, month, day, time, infile,
+                                        fout_consolidated, whisper_start_line,
+                                        last_non_empty_line_no, csv_writer)
 
                 # Reset variables to default values after use
                 year = '0000'
                 month = '00'
                 day = '00'
                 time = '0000'
-                author = ''
-                #print author
-
             # 2 is because of word files format:
             # 032
             #
@@ -341,18 +357,21 @@ def separate_combined_tamil_whispers_to_separate_files(fin, infile, outdir, csv_
     # after encountering a new one - which wouldn't be the case with the last one!
 
     if num_lines > 0:
-        write_out_whisper(lines, year, month, day, time, infile, outdir, whisper_start_line, last_non_empty_line_no, csv_writer)
-
-        # Reset variables to default values after use
-        year = '0000'
-        month = '00'
-        day = '00'
-        time = '0000'
+        write_out_whisper_tamil(lines, year, month, day, time, infile,
+                                fout_consolidated, whisper_start_line,
+                                last_non_empty_line_no, csv_writer)
+    fout_consolidated.close()
 
 
 def restore_hindi_whispers_chars_and_formatting(fin, fout):
     combine_mode_quotes = False
     combine_mode_bracket = False
+
+    # A weird way of keeping track of whether we've seen
+    # a genuine message header. Increment it by 1 each time we
+    # see priya malik, then babuji maharaj, and finally date.
+    is_header_count_to_3 = 0
+    prev_combined_lines = ''
 
     for line in fin:
 
@@ -362,51 +381,76 @@ def restore_hindi_whispers_chars_and_formatting(fin, fout):
         line = line.encode('utf-8')
 
         # These characters have faulty conversion when converted using font-converter (font: shree-dev-0702)
+        # OrderedDict keeps the order of insertion of keys. Necessary since we want to replace single chars
+        # first, followed by whole words
+        character_replacement_list = OrderedDict([('ङ्क', 'म'),
+                                                  ('ङ्म', 'य'),
+                                                  ('μज', 'ज़'),
+                                                  ('ङ्ग', '“'),
+                                                  ('ङ्घ', '”'),
+                                                  ('ङ्ख', 'फ'),
+                                                  ('μफ', 'फ़'),
+                                                  ('μर्फ', 'र्फ़'),
+                                                  ('०', '0'),
+                                                  ('१', '1'),
+                                                  ('२', '2'),
+                                                  ('३', '3'),
+                                                  ('४', '4'),
+                                                  ('५', '5'),
+                                                  ('६', '6'),
+                                                  ('७', '7'),
+                                                  ('८', '8'),
+                                                  ('९', '9'),
+                                                  ('μक', 'क़'),
+                                                  ('μग', 'ग़'),
+                                                  ('‘‘', '“'),
+                                                  ('’’', '”'),
+                                                  (' ्रया ', ' क्या '),
+                                                  ('“्रया', '“क्या'),
+                                                  ('्रयोंकि', 'क्योंकि'),
+                                                  ('्रयों', 'क्यों'),
+                                                  ('μख', 'ख़'),
+                                                  ('अ्रटूबर','अक्टूबर'),
+                                                  ('ैैं',  'ैं'),
+                                                  ('आें', 'ओं'),
+                                                  # ('़ुड',  'ुड़'),
+                                                  ('़ुड',  'ुड़'),
+                                                  # ('़ीड', 'ीड़'),
+                                                  ('़ीड', 'ीड़'),
+                                                  # ('़ाड', 'ाड़'),
+                                                  ('़ाड', 'ाड़'),
+                                                  ('कदमकदम', 'कदम-कदम'),
+                                                  ('धीरेधीरे','धीरे-धीरे'),
+                                                  ('ढूँ़ढ', 'ढूँढ'),
+                                                  # ('़ृढ','ृढ़'),
+                                                  ('़ृढ', 'ृढ़'),
+                                                  # ('हँू', 'हूँ'),
+                                                  ('हँू', 'हूँ'),
 
-        character_replacement_list = {'ङ्क': 'म',
-                                      'ङ्म': 'य',
-                                      'μज': 'ज़',
-                                      'ङ्ग': '“',
-                                      'ङ्घ': '”',
-                                      'ङ्ख': 'फ',
-                                      'μफ': 'फ़',
-                                      'μर्फ':'र्फ़',
-                                      '०': '0',
-                                      '१': '1',
-                                      '२': '2',
-                                      '३': '3',
-                                      '४': '4',
-                                      '५': '5',
-                                      '६': '6',
-                                      '७': '7',
-                                      '८': '8',
-                                      '९': '9',
-                                      'μक': 'क़',
-                                      'μग': 'ग़',
-                                      '्रया': 'क्या',
-                                      '्रयोंकि': 'क्योंकि',
-                                      '्रयों': 'क्यों',
-                                      'μख': 'ख़',
-                                      'अ्रटूबर':'अक्टूबर',
-                                      'ैैं': 'ैं',
-                                      'आें':'ओं',
-                                      '़ुड': 'ुड़',
-                                      'ढूँ़ढ': 'ढूँढ',
-                                      'कभीकभी':'कभी-कभी',
-                                      'छोटीछोटी':'छोटी-छोटी',
-                                      'काया]': 'कार्य',
-                                      'ेें': 'ें',
-                                      '‘‘': '“',
-                                      '’’': '”',
+                                                  # ('ेें', 'ें'),
+                                                  ('ेें', 'ें'),
+                                                  ('ाें', 'ों'),
+                                                  ('कभीकभी', 'कभी-कभी'),
+                                                  ('छोटीछोटी', 'छोटी-छोटी'),
+                                                  ('साथसाथ', 'साथ-साथ'),
+                                                  ('काया]', 'कार्य'),
+                                                  ('धमा]', 'धर्म'),
+                                                  ('निष्कषा]', 'निष्कर्ष'),
+                                                  ('μंजदगी', 'ज़िंदगी '),
 
-                                      # *********DON'T TOUCH*********
-                                      '़ड':'ड़',
-                                      '़ढ': 'ढ़',
-                                      '़ोड': 'ोड़',
-                                      'ंॅ': 'ँ',
-                                      # ****************************
 
-                                      'वμ्रत': 'वक्त'}
+                                                  # *********DON'T TOUCH*********
+                                                  # ('़ड','ड़'),
+                                                  ('़ड', 'ड़'),
+                                                  # ('़ढ', 'ढ़'),
+                                                  ('़ढ', 'ढ़'),
+                                                  # ('़ोड', 'ोड़'),
+                                                  ('़ोड', 'ोड़'),
+                                                  # ('ंॅ', 'ँ'),
+                                                  ('ंॅ', 'ँ'),
+                                                  # ****************************
+
+                                                  ('वμ्रत', 'वक्त')])
 
         for char in character_replacement_list.keys():
             line = line.replace(char, character_replacement_list[char])
@@ -414,40 +458,65 @@ def restore_hindi_whispers_chars_and_formatting(fin, fout):
         # The whispers copied from PDF have newline after each line appearing in the PDF.
         # We therefore have to combine multiple lines in a single line by observing opening "
         # or (.
-        #print line[0], line[-2]
+        # print line[0], line[-2]
+
+        # We have repeated header of 'प्रिय मालिक' in case of whispers spanning more
+        # than a page. Hence weed out false positives
+        if line.find('प्रिय मालिक') != -1:
+            is_header_count_to_3 = 1
+            prev_combined_lines = line
+            continue
+
+        elif is_header_count_to_3 == 1:
+            if line.find('पूज्य बाबूजी महाराज') != -1:
+                is_header_count_to_3 = 2
+                prev_combined_lines = prev_combined_lines + line
+            else:
+                is_header_count_to_3 = 0
+                prev_combined_lines = ''
+            continue
+
+        elif is_header_count_to_3 == 2:
+            for month_hindi in hindi_months_dictionary.keys():
+                if -1 != line.find(month_hindi.encode('utf8')):
+                    # We got a genuine header. Add prev lines to current line for output
+                    line = prev_combined_lines + line
+                    combine_mode_bracket = False
+                    combine_mode_quotes = False
+                    break
+            is_header_count_to_3 = 0
+            prev_combined_lines = ''
 
         if line[0] == '(':
             combine_mode_bracket = True
-            print "Combine mode bracket start"
         if line.find('“') == 0:
             combine_mode_quotes = True
-            print "Combine mode quotes start"
+        else:
+            words = line.split()
+            # Handle lines like माध्यम : “यह or माध्यम : “यह
+            if len(words) >= 3 and (words[1].find('“') == 0 or words[2].find('“') == 0):
+                combine_mode_quotes = True
 
         # [-1] would be '\n'
         if line[-2] == ')':
             combine_mode_bracket = False
-            print "Combine mode bracket end"
 
         # Used hit-and-trial (aka printfs) to determine where does a closed brace appear in unicode!
         # This is because in there, the characters are no longer 1-byte. In fact, I think we can safely
         # assume each char to be of 4 byte when working with pure Unicode.
 
-        if line.find('”') == len(line) -4:
-            combine_mode_quotes = False
-            print "Combine mode quotes end"
-
-        if line.find('प्रिय मालिक') != -1:
-            combine_mode_bracket = False
+        if line.find('”') == len(line) - 4:
             combine_mode_quotes = False
 
-        if combine_mode_quotes == True or combine_mode_bracket == True:
-            #The \n acts as a space as well, so replace that with space
+        if combine_mode_quotes or combine_mode_bracket:
+            # The \n acts as a space as well, so replace that with space
             line = line.replace('\n', ' ')
 
         fout.write(line.decode("utf-8"))
-        #fout.write(line)
+        # fout.write(line)
 
         # line = line.replace( '६' , '6' )
+
 
 def restore_tamil_whispers_chars_and_formatting(fin, fout):
     for line in fin:
@@ -459,10 +528,11 @@ def restore_tamil_whispers_chars_and_formatting(fin, fout):
         line = line.replace('Œாட்சியாக', 'சாட்சி யாக')
         fout.write(line.decode("utf-8"))
 
+
 def process_conversion_to_panini(infile, indir, outdir, language, refine, panini):
 
     # In batch mode, the input file consists of a newline separated list of file names containing the source text
-    if (indir == True):
+    if indir:
         print "**********************"
         print "Directory Mode Enabled"
         print "**********************"
@@ -490,12 +560,11 @@ def process_conversion_to_panini(infile, indir, outdir, language, refine, panini
 
         fin = io.open(read_filename, 'r', encoding='utf8')
 
-
         if refine:
             outfile_conversion = filename + ".converted"
             outfile_conversion_full_path = outdir + '/' + outfile_conversion
 
-            print "Writing refined output to %s" %outfile_conversion_full_path
+            print "Writing refined output to %s" % outfile_conversion_full_path
 
             # encoding='utf8' is necessary because file is opened in ascii by default, which throws error when trying to
             # write a non-ascii character
@@ -510,28 +579,22 @@ def process_conversion_to_panini(infile, indir, outdir, language, refine, panini
             fin.close()
             fout_conversion.close()
 
-
             fin = io.open(outfile_conversion_full_path, 'r', encoding='utf8')
-
 
         if panini:
             outfile_csv = outdir + '/' + 'whispers.' + language + '.csv'
 
             fout_csv = io.open(outfile_csv, 'ab')
 
-
             # Lifted from http://stackoverflow.com/questions/2084069/create-a-csv-file-with-values-from-a-python-list
             csv_writer = csv.writer(fout_csv, quoting=csv.QUOTE_ALL)
             if language == 'hindi':
-                separate_combined_hindi_whispers_to_separate_files(fin, outdir, csv_writer)
+                write_consolidated_hindi_whispers_master_file(fin, filename, outdir, csv_writer)
             else:
-                separate_combined_tamil_whispers_to_separate_files(fin, filename, outdir, csv_writer)
+                write_consolidated_tamil_whispers_master_file(fin, filename, outdir, csv_writer)
             fout_csv.close()
 
         fin.close()
-
-
-
 
 
 def print_usage(binary_name):
@@ -555,8 +618,6 @@ def main(binary_name, argv):
     # Create Whispers files for Panini
     panini = False
 
-
-    batch_mode = False
     if len(argv) == 0:
         print_usage(binary_name)
 
@@ -584,13 +645,12 @@ def main(binary_name, argv):
         elif opt == "--panini":
             panini = True
 
-
-    if infile == None and indir == None:
+    if infile is None and indir is None:
         print "Input file / Dir not specified"
         print_usage(binary_name)
-    if refine == False and panini == False:
+    if not refine and not panini:
         print "No operations specified. Specify among --refine and/or --panini"
-    elif language == None:
+    elif language is None:
         print "Language not specified"
         print_usage(binary_name)
 
