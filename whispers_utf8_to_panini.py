@@ -176,8 +176,7 @@ def get_param_value(line):
     return value.rstrip('\n').rstrip('\r')
 
 
-
-def separate_consolidated_whispers_master_file_into_individual_files(f_in, outdir):
+def separate_consolidated_whispers_master_file_into_individual_files(f_in, outdir, csv_writer):
     line_no = 0
     whisper_begin = False
 
@@ -222,6 +221,13 @@ def separate_consolidated_whispers_master_file_into_individual_files(f_in, outdi
                 print "ERROR. Line No: ", line_no, " WHISPER_END without WHISPER_BEGIN. Exiting!"
                 exit(1)
             whisper_begin = False
+            if language == 'hindi':
+                csv_writer.writerow([line_no, unicode(timestamp), u'hi', unicode(author), u'1'])
+            else:
+                csv_writer.writerow([line_no, unicode(timestamp), u'ta', unicode(author), u'1'])
+
+        # We are reading a non-metadata line. Hence, if we have already encountered WHISPER_BEGIN,
+        # simply output the line to the currently opened file. Else Exit!
         else:
             if not whisper_begin:
                 print "ERROR. Line No: ", line_no, " Unidentified Portion of File. Exiting!"
@@ -229,13 +235,9 @@ def separate_consolidated_whispers_master_file_into_individual_files(f_in, outdi
             f_out.write(line)
 
 
-
-
-
-
 def write_out_whisper_hindi(lines, year, month, day, time,
                             infile, fout, whisper_start_line,
-                            whisper_end_line, csv_writer):
+                            whisper_end_line):
 
     author = get_author_hindi(lines[whisper_end_line])
     timestamp = year + month + day + time
@@ -262,10 +264,9 @@ def write_out_whisper_hindi(lines, year, month, day, time,
     fout.write(lines[whisper_end_line])
 
     fout.write(u'#WHISPER_END\n')
-    csv_writer.writerow([whisper_start_line + 1, unicode(timestamp), u'hi', unicode(author), u'1'])
 
 
-def write_consolidated_hindi_whispers_master_file(fin, fout, infile, csv_writer):
+def write_consolidated_hindi_whispers_master_file(fin, fout, infile):
     line_no = 0
     message_beg_flag = False
     year = '0000'
@@ -285,7 +286,7 @@ def write_consolidated_hindi_whispers_master_file(fin, fout, infile, csv_writer)
             message_beg_flag = True
             # Finish writing out the previous whisper to a file
             if line_no > 0:
-                write_out_whisper_hindi(lines, year, month, day, time, infile, fout, whisper_start_line, line_no-1, csv_writer)
+                write_out_whisper_hindi(lines, year, month, day, time, infile, fout, whisper_start_line, line_no-1)
 
                 # Reset variables to default values after use
                 year = '0000'
@@ -314,11 +315,11 @@ def write_consolidated_hindi_whispers_master_file(fin, fout, infile, csv_writer)
     if num_lines > 0:
         write_out_whisper_hindi(lines, year, month, day, time,
                                 infile, fout,
-                                whisper_start_line, line_no-1, csv_writer)
+                                whisper_start_line, line_no-1)
 
 def write_out_whisper_tamil(lines, year, month, day, time,
                             infile, fout, whisper_start_line,
-                            whisper_end_line, csv_writer):
+                            whisper_end_line):
 
     author = get_author_tamil(lines[whisper_end_line])
     timestamp = year + month + day + time
@@ -345,10 +346,9 @@ def write_out_whisper_tamil(lines, year, month, day, time,
     fout.write(lines[whisper_end_line])
 
     fout.write(u'#WHISPER_END\n')
-    csv_writer.writerow([whisper_start_line + 1, unicode(timestamp), u'ta', unicode(author), u'1'])
 
 
-def write_consolidated_tamil_whispers_master_file(fin, fout, infile, csv_writer):
+def write_consolidated_tamil_whispers_master_file(fin, fout, infile):
     line_no = 0
     message_beg_flag = False
     year = '0000'
@@ -384,7 +384,7 @@ def write_consolidated_tamil_whispers_master_file(fin, fout, infile, csv_writer)
             if line_no > 0:
                 write_out_whisper_tamil(lines, year, month, day, time, infile,
                                         fout, whisper_start_line,
-                                        last_non_empty_line_no, csv_writer)
+                                        last_non_empty_line_no)
 
                 # Reset variables to default values after use
                 year = '0000'
@@ -416,7 +416,7 @@ def write_consolidated_tamil_whispers_master_file(fin, fout, infile, csv_writer)
     if num_lines > 0:
         write_out_whisper_tamil(lines, year, month, day, time, infile,
                                 fout, whisper_start_line,
-                                last_non_empty_line_no, csv_writer)
+                                last_non_empty_line_no)
 
 
 def restore_hindi_whispers_chars_and_formatting(fin, fout):
@@ -652,11 +652,7 @@ def process_conversion_to_panini(infile, indir, outdir, language, refine, panini
         else:
             outfile_panini_consolidated = 'tamil-whispers.txt'
         fout = io.open(outdir + '/' + outfile_panini_consolidated, 'w', encoding='utf8')
-        outfile_csv = outdir + '/' + 'whispers.' + language + '.csv'
 
-        # Lifted from http://stackoverflow.com/questions/2084069/create-a-csv-file-with-values-from-a-python-list
-        fout_csv = io.open(outfile_csv, 'wb')
-        csv_writer = csv.writer(fout_csv, quoting=csv.QUOTE_ALL)
 
 
         for filename in filenames:
@@ -671,13 +667,12 @@ def process_conversion_to_panini(infile, indir, outdir, language, refine, panini
             fin = io.open(read_filename, 'r', encoding='utf8')
 
             if language == 'hindi':
-                write_consolidated_hindi_whispers_master_file(fin, fout, filename, csv_writer)
+                write_consolidated_hindi_whispers_master_file(fin, fout, filename)
             else:
-                write_consolidated_tamil_whispers_master_file(fin, fout, filename, csv_writer)
+                write_consolidated_tamil_whispers_master_file(fin, fout, filename)
 
             fin.close()
 
-        fout_csv.close()
         fout.close()
         output_filenames.append(outfile_panini_consolidated)
         filenames = output_filenames
@@ -686,6 +681,12 @@ def process_conversion_to_panini(infile, indir, outdir, language, refine, panini
         indir = outdir
 
     if panini:
+
+        outfile_csv = outdir + '/' + 'whispers.' + language + '.csv'
+
+        # Lifted from http://stackoverflow.com/questions/2084069/create-a-csv-file-with-values-from-a-python-list
+        fout_csv = io.open(outfile_csv, 'wb')
+        csv_writer = csv.writer(fout_csv, quoting=csv.QUOTE_ALL)
 
         for filename in filenames:
 
@@ -698,14 +699,17 @@ def process_conversion_to_panini(infile, indir, outdir, language, refine, panini
 
             fin = io.open(read_filename, 'r', encoding='utf8')
 
-            separate_consolidated_whispers_master_file_into_individual_files(fin, outdir)
+            separate_consolidated_whispers_master_file_into_individual_files(fin, outdir, csv_writer)
 
             fin.close()
+
+        fout_csv.close()
+
 
 
 
 def print_usage(binary_name):
-    print 'Usage:', binary_name, "--infile=<inputfile> --indir=<input dir> -l=<hindi/tamil> --refine -- panini_consolidated --panini "
+    print 'Usage:', binary_name, "--infile=<inputfile> --indir=<input dir> -l=<hindi/tamil> --refine --combine --panini "
     print "--infile: Take just a given file for processing"
     print "--indir: Take all files in the dir for processing "
     print "--refine: Refine UTF-8 files further "
@@ -763,8 +767,9 @@ def main(binary_name, argv):
     if infile is None and indir is None:
         print "Input file / Dir not specified"
         print_usage(binary_name)
-    if not refine and not panini_consolidated:
-        print "No operations specified. Specify among --refine and/or --panini_consolidated"
+    if not refine and not panini_consolidated and not panini:
+        print "No operations specified. Specify among --refine and/or --combine and/or --panini"
+        print_usage(binary_name)
     elif language is None:
         print "Language not specified"
         print_usage(binary_name)
