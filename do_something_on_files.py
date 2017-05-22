@@ -28,14 +28,11 @@ def remove_page_number(infile, indir, outdir, language):
         fout.write(line)
 
 def extract_from_pdf(infile, indir, outdir, language):
-    print ("Demarker:", dir_path_demarker)
     if not indir == None:
-        print (indir, ":",dir_path_demarker, ":",infile)
         infile_path = indir + dir_path_demarker + infile
     else:
         infile_path = infile
     #fin = io.open(infile_path, "r")
-    print ("Infile path:", infile_path);
     outfile = infile + '.raw.txt'
 
     if not outdir == None:
@@ -165,9 +162,8 @@ def main(binary_name, argv):
         dir_path_demarker = '\\'
     else:
         dir_path_demarker='/'
-    print ("OS Name is:", os.name, "demarker:", dir_path_demarker)
     
-
+    
     print ("Input file:", infile)
     print ("Input Dir:", indir)
     print ("Output Dir:", outdir)
